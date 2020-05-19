@@ -5,6 +5,8 @@ Turns plsql packages into express api calls
 ## import and initialize
 
 ```
+const plsql= require('oracledb-plsql')
+
 app.use(plsql(app, {
    oracle_cn : {
       user         : process.env.DB_USER,

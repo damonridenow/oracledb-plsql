@@ -21,14 +21,25 @@ app.use(plsql(app, {
 ## defined routes
 
 ```
-app.get('/rest/plsql/:pkg', plsql.readAll)
-app.get('/rest/plsql/:pkg/:id', plsql.read)
-app.post('/rest/plsql/:pkg', plsql.create)
-app.put('/rest/plsql/:pkg/:id', plsql.update)
-app.delete('/rest/plsql/:pkg/:id', plsql.delete)
-app.post('/rest/plsql/pls/:pkg/:method', plsql.method)
+app.get('/rest/plsql/:pkg', plsqlLib.readAllRoute)
+app.get('/rest/plsql/:pkg/:id', plsqlLib.readRoute)
+app.post('/rest/plsql/:pkg', plsqlLib.createRoute)
+app.put('/rest/plsql/:pkg/:id', plsqlLib.updateRoute)
+app.delete('/rest/plsql/:pkg/:id', plsqlLib.deleteRoute)
+app.post('/rest/plsql/pls/:pkg/:method', plsqlLib.methodRoute)
 ```
 
+## import single function
+
+Besides routes, every function can be called in a standalone version, with this signatures
+TODO : document every parameter
+
+readAll (query, pkg, user, path, body)
+read (id, pkg, user, path, body)
+create (pkg, user, body)
+update (id, pkg, user, path, body)
+delete (id, pkg, user, path, body)
+method (method, pkg, user, path, body)
 ## plsql packages : the gateway
 
 All the packages described here takes advantage of pljson (https://github.com/pljson/pljson)

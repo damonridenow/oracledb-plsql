@@ -33,449 +33,362 @@ function doRelease(connection)
       });
 }
 
-/*helper per estrarre il risultato OUT CLOB
- TODO : riuscire a usare questa anche per il method new */
-//err_msg = { msg : "method err"
-//            sql : sql,
-//            path : req.path,
-//            body : JSON.stringify(req.body)
-// }
-var extract_result= function (err, result, err_msg, res, connection)
+/*helper per estrarre il risultato OUT CLOB */
+
+const extract_result_new = function (result, connection)
 {
-   if (err)
+   return new Promise((resolve, reject) =>
    {
-      console.error(new Date(), "method err 2 " + err.message, err_msg.sql, err_msg.path, err_msg.body);
-      res.status(500).send({ message:err.message, sql:err_msg.sql });
-   }
-   if (result && result.outBinds && result.outBinds.ret)
-   {
-      var lob = result.outBinds.ret;
-
-      var clob_string = '';
-      lob.setEncoding('utf8');
-
-      lob.on('data', function(chunk) { clob_string += chunk; });
-
-      lob.on('close', function(err)
+      if (result && result.outBinds && result.outBinds.ret)
       {
-         if (err)
+         var lob = result.outBinds.ret;
+
+         var clob_string = '';
+         lob.setEncoding('utf8');
+
+         lob.on('data', (chunk) => { clob_string += chunk; })
+
+         lob.on('close', (err) =>
          {
-            console.error(err.message);
+            if (err)
+            {
+               // console.error(err.message);
+               doRelease(connection);
+               reject(err)
+            }
             doRelease(connection);
-            return;
-         }
-         doRelease(connection);
-         res.status(200).send(JSON.parse(clob_string));
-      });
+            // res.status(200).send(JSON.parse(clob_string));
+            resolve(JSON.parse(clob_string))
+         });
 
-      lob.on('error', function(err)
-      {
-         console.log('lob error event: ' + err.message, err_msg.sql, err_msg.path);
-         res.status(500).send({ message:err.message, sql:err_msg.sql });
-         doRelease(connection);
-      });
-   }
+         lob.on('error', (err) =>
+         {
+            // console.log('lob error event: ' + err.message, err_msg.sql, err_msg.path);
+            // res.status(500).send({ message:err.message, sql:err_msg.sql });
+            doRelease(connection);
+            reject(err)
+         });
+      }
+   })
+   
 }
 /*/helper per estrarre il risultato OUT CLOB*/
 
 /*helpers per uso di clob IN*/
-var doconnect = function(cb)
+const doloadtemplobNew = (templob) =>
 {
-   oracledb.getConnection(oracle_cn, cb);
-}
+   return new Promise((resolve, reject) => {
+      templob.on('close', function() { })
 
-var docreatetemplob = function (conn, cb)
-{
-   conn.createLob(oracledb.CLOB, function(err, templob)
-   {
-      if (err) return cb(err);
-
-      return cb(null, conn, templob);
-   });
-}
-
-var doloadtemplob = function (conn, templob, cb)
-{
-   templob.on('close', function() { });
-
-   templob.on('error', function(err)
-   {
-      console.log("templob.on 'error' event");
-      return cb(err);
-   });
-
-   templob.on('finish', function()
-   {
-      return cb(null, conn, templob);
-   });
-
-   var Readable = require('stream').Readable
-   var s = new Readable;
-   s.push(JSON.stringify(requestBody));
-   s.push(null);
-   s.pipe(templob);
-}
-
-var doclosetemplob = function (conn, templob, clob_string, cb)
-{
-   templob.close(function (err)
-   {
-      if (err) return cb(err);
-
-      return cb(null, conn, clob_string);
-   });
-}
-
-var doreturn = function (conn, clob_string, cb)
-{
-    cb(null, conn, clob_string);
+      templob.on('error', function(err)
+      {
+         console.log('templob.on "error" event')
+         reject(err)
+      });
+   
+      templob.on('finish', function()
+      {
+         resolve(templob)
+      });
+   
+      var Readable = require('stream').Readable
+      var s = new Readable;
+      s.push(JSON.stringify(requestBody));
+      s.push(null);
+      s.pipe(templob);
+   })
 }
 /*/helpers per uso di clob IN*/
 
-exports.readAll = function (req, res)
+exports.readAllRoute = async function (req, res) {
+   try {
+      const result = await exports.readAll(req.query, req.params.pkg, req.user, req.path, req.body)
+      res.status(200).send(result)
+   } catch (err) {
+      res.status(500).send(err);
+   }
+}
+
+exports.readAll = async function (query, pkg, user, path, body)
 {
-   var sql = "BEGIN "+PkgGateway+".read(:par, :pkg, :user, :ret); END;";
-   oracledb.getConnection(oracle_cn,
-      function (err, connection)
-      {
-         if (err)
-         {
-            console.error(new Date(), "readAll err 1 " + err.message, sql, req.path);
-            return ({ error: err });
-         }
-         connection.execute(
+   const sql = 'BEGIN ' + PkgGateway + '.read(:par, :pkg, :user, :ret); END;';
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      try {
+         const result = await connection.execute(
             sql,
             {
                par: {
-                  val: JSON.stringify(req.query),
+                  val: JSON.stringify(query),
                   dir: oracledb.BIND_IN,
                   type: oracledb.STRING,
                   maxSize: 32000
                },
-               pkg: { val: req.params.pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
                ret: {dir: oracledb.BIND_OUT, type: oracledb.CLOB}
-            },
-            function (err, result)
-            {
-               extract_result(err, result, { msg : "readAll err",
-                  sql : sql,
-                  path : req.path,
-                  body : JSON.stringify(req.body)
-               }, res, connection);
-         });
-      });
-}
-
-exports.read = function (req, res)
-{
-   var sql = "BEGIN "+PkgGateway+".read(:key, :pkg, :user, :ret); END;";
-   oracledb.getConnection(oracle_cn,
-      function (err, connection)
-      {
-         if (err)
-         {
-            console.error(new Date(), "read err 1 " + err.message, sql, req.path);
-            return ({ error: err });
-         }
-
-         connection.execute(
-            sql,
-            {
-               key: {val: parseInt(req.params.id), dir: oracledb.BIND_IN, type: oracledb.NUMBER},
-               pkg: { val: req.params.pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               ret: { dir: oracledb.BIND_OUT, type: oracledb.CLOB }
-            },
-            function (err, result)
-            {
-               extract_result(err, result, { msg : "read err",
-                  sql : sql,
-                  path : req.path,
-                  body : JSON.stringify(req.body)
-               }, res, connection);
-            });
-      });
-}
-
-exports.create = function (req, res)
-{
-   var async = require('async');
-   var sql = "BEGIN " + PkgGateway + ".create_(:obj, :pkg, :user, :ret); END;";
-
-   requestBody = req.body;
-
-   var docreate = function (conn, templob, cb)
-   {
-      conn.execute(
-         sql,
-         {
-            obj: {val: JSON.stringify(req.body), dir: oracledb.BIND_IN, type: oracledb.STRING},
-            pkg: {val: req.params.pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 4000},
-            user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-            ret: {dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000}
-         },
-         function (err, result)
-         {
-            if (err) return cb(err);
-
-            if (result && result.outBinds && result.outBinds.ret)
-            {
-               var clob_string = JSON.parse(result.outBinds.ret);
-               return cb(null, conn, templob, clob_string);
             }
-         });
+         )
+
+         const parsedResult =  await extract_result_new(result, connection)
+         return parsedResult
+
+      } catch(err) {
+         console.error(new Date(), "readAll err 2 " + err.message, sql, path, JSON.stringify(body));
+         throw { message: err.message, sql: sql }
+      }
+   } catch(err) {
+      console.error(new Date(), "readAll err 1 " + err.message, sql, path)
+      throw { error: err }
    }
-
-   async.waterfall(
-      [
-         doconnect,
-         docreatetemplob,
-         doloadtemplob,
-         docreate,
-         doclosetemplob,
-         doreturn
-      ],
-      function (err, conn, clob_string)
-      {
-         if (err)
-         {
-            console.error("In waterfall error cb: ==>", err, JSON.stringify(req.body), req.params.pkg, "<==");
-            res.status(500).send({message: err.message, sql: sql})
-         }
-
-         if (conn) doRelease(conn);
-
-         res.status(200).send(clob_string);
-      });
 }
 
-exports.createOld = function (req, res)
+exports.readRoute = async function (req, res) {
+   try {
+      const result = await exports.read(req.params.id, req.params.pkg, req.user, req.path, req.body)
+      res.status(200).send(result)
+   } catch (err) {
+      res.status(500).send(err);
+   }
+}
+
+exports.read = async function (id, pkg, user, path, body)
 {
-   var sql = "BEGIN " + PkgGateway + ".create_(:obj, :pkg, :user, :ret); END;";
-
-   oracledb.getConnection(oracle_cn,
-      function (err, connection)
-      {
-         if (err)
-         {
-            console.error(new Date(), "create err 1 " + err.message, sql, req.path);
-            return ({error: err});
-         }
-
-         connection.execute(
+   const sql = 'BEGIN ' + PkgGateway + '.read(:key, :pkg, :user, :ret); END;'
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      try {
+         const result = await connection.execute(
             sql,
             {
-               obj: {val: JSON.stringify(req.body), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000},
-               pkg: {val: req.params.pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000},
-               user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               key: {val: parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER},
+               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               ret: { dir: oracledb.BIND_OUT, type: oracledb.CLOB }
+            })
+
+            const parsedResult =  await extract_result_new(result, connection)
+            return parsedResult
+      } catch(err) {
+         console.error(new Date(), "read err 2 " + err.message, sql, path, JSON.stringify(body));
+         throw { message: err.message, sql: sql }
+      }
+   } catch(err) {
+      console.error(new Date(), "read err 1 " + err.message, sql, path)
+      throw { error: err }
+   }
+}
+
+exports.createRoute = async function (req, res) {
+   try {
+      const result = await exports.create(req.params.pkg, req.user, req.body)
+      res.status(200).send(result)
+   } catch (err) {
+      res.status(500).send(err);
+   }
+}
+
+exports.create = async function (pkg, user, body)
+{
+   const sql = 'BEGIN ' + PkgGateway + '.create_(:obj, :pkg, :user, :ret); END;'
+
+   requestBody = body;
+
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      const tempLob = await connection.createLob(oracledb.CLOB)
+      const loadedTempBlob = await doloadtemplobNew(tempLob)
+
+      try {
+         const result = await connection.execute(sql,
+            {
+               obj: {val: JSON.stringify(body), dir: oracledb.BIND_IN, type: oracledb.STRING},
+               pkg: {val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 4000},
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
                ret: {dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000}
-            },
-            function (err, result)
-            {
-               if (err)
-               {
-                  console.error(new Date(), "create err 2 " + err.message, sql, req.path, JSON.stringify(req.body));
-                  res.status(500).send({message: err.message, sql: sql});
-                  console.log(sql);
-               }
-               if (result && result.outBinds && result.outBinds.ret)
-               {
-                  var r = JSON.parse(result.outBinds.ret);
-                  res.send(r);
-               }
-               doRelease(connection);
-            });
-      });
-}
+            })
 
-exports.update= function(req, res)
-{
-   var sql = "BEGIN "+PkgGateway+".update_(:key, :obj, :pkg, :user, :ret); END;";
-   oracledb.getConnection(oracle_cn,
-      function(err, connection)
-      {
-         if (err)
+         if (result && result.outBinds && result.outBinds.ret)
          {
-            console.error(new Date(), "update err 1 " + err.message, sql, req.path);
-            return({error:err});
+            var clob_string = JSON.parse(result.outBinds.ret)
          }
-         connection.execute(
-            sql,
-            {  key: { val:parseInt(req.params.id), dir: oracledb.BIND_IN, type: oracledb.NUMBER } ,
-               obj : { val:JSON.stringify(req.body), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize:32000 },
-               pkg: { val: req.params.pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               ret: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 }
-            },
-            function (err, result)
-            {
-               if (err)
-               {
-                  console.error(new Date(), "update err 2 " + err.message, sql, req.path, req.params.id, JSON.stringify(req.body));
-                  res.status(500).send({ message:err.message, sql:sql });
-                  console.log(sql);
-               }
 
-               if (result && result.outBinds && result.outBinds.ret)
-               {
-                  var r = JSON.parse(result.outBinds.ret);
-                  res.send(r);
-               }
-
-               doRelease(connection);
-            });
-      });
+         await tempLob.close()
+         return clob_string
+      } catch(err) {
+         console.error("In waterfall error cb: ==>", err, JSON.stringify(req.body), pkg, "<==");
+         throw err
+      }
+   } catch(err) {
+      console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
+      throw err
+   }
 }
 
-exports.delete= function(req, res)
+exports.updateRoute = async function (req, res) {
+   try {
+      const result = await exports.update(req.params.id, req.params.pkg, req.user, req.path, req.body)
+      res.status(200).send(result)
+   } catch (err) {
+      res.status(500).send(err);
+   }
+}
+
+exports.update = async function(id, pkg, user, path, body)
 {
-   var sql = "begin "+PkgGateway+".delete_(:key, :pkg, :user); end;";
-   oracledb.getConnection(oracle_cn,
-      function(err, connection)
-      {
-          if (err)
-          {
-             console.error(new Date(), "delete err 1 " + err.message, sql, req.path);
-             return({error:err});
-          }
-         connection.execute(
-           sql,
-           {  key: { val:parseInt(req.params.id), dir: oracledb.BIND_IN, type: oracledb.NUMBER },
-              pkg: { val: req.params.pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-              user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
-           },
-           function (err, result)
-           {
-             if (err)
-             {
-                console.error(new Date(), "delete err 2 " + err.message, sql, req.path, req.params.id);
-                res.status(500).send({ message:err.message, sql:sql });
-                console.log(sql);
-             }
-             else
-                res.send();
+   const sql = 'BEGIN ' + PkgGateway + '.update_(:key, :obj, :pkg, :user, :ret); END;'
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      try {
+         const result = await connection.execute(
+            sql,
+            {  key: { val:parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER } ,
+               obj : { val:JSON.stringify(body), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize:32000 },
+               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               ret: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 }
+            }
+         )
 
-             doRelease(connection);
-           });
-      });
+         if (result && result.outBinds && result.outBinds.ret)
+         {
+            var r = JSON.parse(result.outBinds.ret)
+            doRelease(connection)
+            return(r)
+         } else doRelease(connection)
+         
+      } catch(err) {
+         console.error(new Date(), "update err 2 " + err.message, sql, path, JSON.stringify(body));
+         throw err
+      }
+   } catch(err) {
+      console.error(new Date(), "update err 1 " + err.message, sql, path)
+      throw err
+   }   
 }
 
-exports.method = function (req, res)
+exports.deleteRoute = async function (req, res) {
+   try {
+      const result = await exports.delete(req.params.id, req.params.pkg, req.user, req.path, req.body)
+      res.status(200).send(result)
+   } catch (err) {
+      res.status(500).send(err);
+   }
+}
+
+exports.delete = async function(id, pkg, user, path, body)
+{
+   const sql = 'BEGIN ' + PkgGateway + '.delete_(:key, :pkg, :user); END;';
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      try {
+         const result = await connection.execute(
+            sql,
+            {  key: { val:parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER },
+               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
+            }
+         )
+         
+         return
+      } catch(err) {
+         console.error(new Date(), "delete err 2 " + err.message, sql, path, JSON.stringify(body));
+         throw { message: err.message, sql: sql }
+      }
+   } catch(err) {
+      console.error(new Date(), "delete err 1 " + err.message, sql, path)
+      throw { error: err }
+   }
+}
+
+exports.methodRoute = async function (req, res) {
+   try {
+      const result = await exports.method(req.params.method, req.params.pkg, req.user, req.path, req.body)
+      res.status(200).send(result)
+   } catch (err) {
+      res.status(500).send(err);
+   }
+}
+
+exports.method = async function (method, pkg, user, path, body)
 {
     //ho fatto due metodi diversi a seconda del parametro che gli inviamo : se serve usiamo un CLOB
     //console.log('metodo : lunghezza body', JSON.stringify(req.body).length);
-    if (JSON.stringify(req.body).length > 30000)
-        methodNew(req, res);
+    if (JSON.stringify(body).length > 30000)
+        return methodNew(method, pkg, user, path, body);
     else
-        methodOld(req, res);
+        return methodOld(method, pkg, user, path, body);
 }
 
-var methodOld= function(req, res)
+const methodOld = async function(method, pkg, user, path, body)
 {
-   var sql = "BEGIN "+PkgGateway+".method(:par, :pkg, :user, :ret); END;";
+   const sql = 'BEGIN ' + PkgGateway + '.method(:par, :pkg, :user, :ret); END;';
 
-   oracledb.getConnection(oracle_cn,
-      function (err, connection)
-      {
-         if (err)
-         {
-            console.error(new Date(), "method err 1 " + err.message, sql, req.path);
-            return ({error: err});
-         }
-         connection.execute(
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      try {
+         const result = await connection.execute(
             sql,
             {
                par: {
-                  val: JSON.stringify(req.body),
+                  val: JSON.stringify(body),
                   dir: oracledb.BIND_IN,
                   type: oracledb.STRING,
                   maxSize: 32000
                },
-               pkg: { val: req.params.pkg + "." + req.params.method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               pkg: { val: pkg + '.' + method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
                ret: {dir: oracledb.BIND_OUT, type: oracledb.CLOB}
-            },
-            function (err, result)
-            {
-               extract_result(err, result, { msg : "method err",
-                  sql : sql,
-                  path : req.path,
-                  body : JSON.stringify(req.body)
-               }, res, connection);
-            });
-      });
+            }
+         )
+
+         const parsedResult =  await extract_result_new(result, connection)
+         return parsedResult
+      } catch(err) {
+         console.error(new Date(), "methodOld err 2 " + err.message, sql, path, JSON.stringify(body));
+         throw { message: err.message, sql: sql }
+      }
+   } catch(err) {
+      console.error(new Date(), "methodOld err 1 " + err.message, sql, path)
+      throw { error: err }
+   }
 }
 
-var methodNew = function (req, res)
+var methodNew = async function (method, pkg, user, path, body)
 {
    var async = require('async');
-   var sql = "BEGIN "+PkgGateway+".method(:par, :pkg, :user); END;";
+   var sql = 'BEGIN ' + PkgGateway + '.method(:par, :pkg, :user); END;';
 
-   requestBody = req.body;
+   requestBody = body;
+  
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      const tempLob = await connection.createLob(oracledb.CLOB)
+      const loadedTempBlob = await doloadtemplobNew(tempLob)
 
-   var domethod = function (conn, templob, cb)
-   {
-      conn.execute(
-         sql,
-         {
-            par : { val: templob, dir: oracledb.BIND_INOUT, type: oracledb.CLOB },
-            pkg: { val: req.params.pkg + "." + req.params.method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-            user: { val: formatUserFunction(req.user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
-         },
-         function (err, result)
-         {
-            if (err) return cb(err);
-
-            if (result && result.outBinds && result.outBinds.par)
+      try {
+         const result = await connection.execute(sql,
             {
-               var lob = result.outBinds.par;
+               par : { val: templob, dir: oracledb.BIND_INOUT, type: oracledb.CLOB },
+               pkg: { val: pkg + '.' + method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
+            })
 
-               var clob_string = '';
-               lob.setEncoding('utf8');
-
-               lob.on('data', function (chunk) {
-                  clob_string += chunk;
-               });
-
-               lob.on('close', function (err) {
-                  if (err)
-                  {
-                     console.error(err.message);
-                     return cb(err);
-                  }
-                  return cb(null, conn, templob, clob_string);
-               });
-
-               lob.on('error', function (err)
-               {
-                  return cb(err);
-               });
-            }
-         });
-   };
-
-   async.waterfall(
-      [
-         doconnect,
-         docreatetemplob,
-         doloadtemplob,
-         domethod,
-         doclosetemplob,
-         doreturn
-      ],
-      function (err, conn, clob_string)
-      {
-         if (err)
+         if (result && result.outBinds && result.outBinds.ret)
          {
-            console.error("In waterfall error cb: ==>", err, "<==");
-            res.status(500).send({message: err.message, sql: sql})
+            var clob_string = JSON.parse(result.outBinds.ret)
          }
 
-         if (conn) doRelease(conn);
-
-         res.status(200).send(clob_string);
-      });
+         await tempLob.close()
+         return clob_string
+      } catch(err) {
+         console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
+         throw err
+      }
+   } catch(err) {
+      console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
+      throw err
+   }
 }
 
 exports.testConnection = function(req, res)

@@ -34,12 +34,123 @@ app.post('/rest/plsql/pls/:pkg/:method', plsqlLib.methodRoute)
 Besides routes, every function can be called in a standalone version, with this signatures
 TODO : document every parameter
 
+
 readAll (query, pkg, user, path, body)
+
+Example : 
+```
+readAll({}, 'no_canale', { 
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, '/rest/plsql/no_canale', {})
+
+readAll({ temp: '1' }, 'no_utente', {
+   _id: 4, nome: 
+   'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, '/rest/plsql/no_utente', {})
+```
+
 read (id, pkg, user, path, body)
+
+Example : 
+```
+read(49, 'no_utente', {
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+} '/rest/plsql/no_utente/49', {})
+```
+
 create (pkg, user, body)
+
+Example : 
+```
+create('no_cartella', {
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, {
+   parent_id: 29, 
+   nome: 'test', 
+   canale_id: 13
+})
+```
+
 update (id, pkg, user, path, body)
+
+Example : 
+```
+update(2, 'no_gruppo', {
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, '/rest/plsql/no_gruppo/2', {
+   gruppo_id: 2, 
+   canale_id: 13, 
+   nome: 'gruppo due', 
+   tipo: 'UTENTE', 
+   visibile: 1
+})
+```
+
 delete (id, pkg, user, path, body)
+
+Example : 
+```
+delete(5, 'no_gruppo', {
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, '/rest/plsql/no_gruppo/5', {})
+```
+
 method (method, pkg, user, path, body)
+
+Example : 
+```
+method('read_utenti_canale', 'no_utenti_canali', {
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, '/rest/plsql/pls/no_utenti_canali/read_utenti_canale', { canale_id: 13 })
+
+method('report_download', 'no_canale', {
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, '/rest/plsql/pls/no_canale/report_download', {
+   cid: 13, 
+   da: '2022-05-01', 
+   a: '2022-05-31'
+})
+
+method('read_utenti_canale', 'no_utenti_canali', {
+   _id: 4, 
+   nome: 'Daniele Sergione2', 
+   mail: 'daniele.sergi@plurimedia.it', 
+   admin: 1, 
+   azienda_id: 2
+}, '/rest/plsql/pls/no_utenti_canali/read_utenti_canale', { canale_id: 13 })
+```
+
 ## plsql packages : the gateway
 
 All the packages described here takes advantage of pljson (https://github.com/pljson/pljson)

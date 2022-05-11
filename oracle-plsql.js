@@ -179,6 +179,33 @@ exports.read = async function (id, pkg, user, path, body)
    }
 }
 
+exports.readStringKey = async function (key, pkg, user, path, body)
+{
+   const sql = 'BEGIN ' + PkgGateway + '.read(:key, :pkg, :user, :ret); END;'
+   try {
+      const connection = await oracledb.getConnection(oracle_cn)
+      try {
+         const result = await connection.execute(
+            sql,
+            {
+               key: { val: JSON.stringify(key), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+               ret: { dir: oracledb.BIND_OUT, type: oracledb.CLOB }
+            })
+
+            const parsedResult =  await extract_result_new(result, connection)
+            return parsedResult
+      } catch(err) {
+         console.error(new Date(), "read err 2 " + err.message, sql, path, JSON.stringify(body));
+         throw { message: err.message, sql: sql }
+      }
+   } catch(err) {
+      console.error(new Date(), "read err 1 " + err.message, sql, path)
+      throw { error: err }
+   }
+}
+
 exports.createRoute = async function (req, res) {
    try {
       const result = await exports.create(req.params.pkg, req.user, req.body)

@@ -243,7 +243,7 @@ exports.create = async function (pkg, user, body)
          await tempLob.close()
          return clob_string
       } catch(err) {
-         console.error("In waterfall error cb: ==>", err, JSON.stringify(req.body), pkg, "<==");
+         console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
          throw err
       }
    } catch(err) {

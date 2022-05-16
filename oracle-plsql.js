@@ -155,27 +155,23 @@ exports.readRoute = async function (req, res) {
 exports.read = async function (id, pkg, user, path, body)
 {
    const sql = 'BEGIN ' + PkgGateway + '.read(:key, :pkg, :user, :ret); END;'
+   const connection = await oracledb.getConnection(oracle_cn)
    try {
-      const connection = await oracledb.getConnection(oracle_cn)
-      try {
-         const result = await connection.execute(
-            sql,
-            {
-               key: {val: parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER},
-               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               ret: { dir: oracledb.BIND_OUT, type: oracledb.CLOB }
-            })
+      const result = await connection.execute(
+         sql,
+         {
+            key: {val: parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER},
+            pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            ret: { dir: oracledb.BIND_OUT, type: oracledb.CLOB }
+         })
 
-            const parsedResult =  await extract_result_new(result, connection)
-            return parsedResult
-      } catch(err) {
-         console.error(new Date(), "read err 2 " + err.message, sql, path, JSON.stringify(body));
-         throw { message: err.message, sql: sql }
-      }
+         const parsedResult =  await extract_result_new(result, connection)
+         return parsedResult
    } catch(err) {
-      console.error(new Date(), "read err 1 " + err.message, sql, path)
-      throw { error: err }
+      const objErr = { stack: err.stack, message: err.message }
+      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      throw objErr
    }
 }
 
@@ -184,25 +180,21 @@ exports.readStringKey = async function (key, pkg, user, path, body)
    const sql = 'BEGIN ' + PkgGateway + '.read(:key, :pkg, :user, :ret); END;'
    try {
       const connection = await oracledb.getConnection(oracle_cn)
-      try {
-         const result = await connection.execute(
-            sql,
-            {
-               key: { val: JSON.stringify(key), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               ret: { dir: oracledb.BIND_OUT, type: oracledb.CLOB }
-            })
+      const result = await connection.execute(
+         sql,
+         {
+            key: { val: JSON.stringify(key), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            ret: { dir: oracledb.BIND_OUT, type: oracledb.CLOB }
+         })
 
-            const parsedResult =  await extract_result_new(result, connection)
-            return parsedResult
-      } catch(err) {
-         console.error(new Date(), "read err 2 " + err.message, sql, path, JSON.stringify(body));
-         throw { message: err.message, sql: sql }
-      }
+         const parsedResult =  await extract_result_new(result, connection)
+         return parsedResult
    } catch(err) {
-      console.error(new Date(), "read err 1 " + err.message, sql, path)
-      throw { error: err }
+      const objErr = { stack: err.stack, message: err.message }
+      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      throw objErr
    }
 }
 
@@ -226,29 +218,25 @@ exports.create = async function (pkg, user, body)
       const tempLob = await connection.createLob(oracledb.CLOB)
       const loadedTempBlob = await doloadtemplobNew(tempLob)
 
-      try {
-         const result = await connection.execute(sql,
-            {
-               obj: {val: JSON.stringify(body), dir: oracledb.BIND_IN, type: oracledb.STRING},
-               pkg: {val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 4000},
-               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               ret: {dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000}
-            })
-
-         if (result && result.outBinds && result.outBinds.ret)
+      const result = await connection.execute(sql,
          {
-            var clob_string = JSON.parse(result.outBinds.ret)
-         }
+            obj: {val: JSON.stringify(body), dir: oracledb.BIND_IN, type: oracledb.STRING},
+            pkg: {val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 4000},
+            user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            ret: {dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000}
+         })
 
-         await tempLob.close()
-         return clob_string
-      } catch(err) {
-         console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
-         throw err
+      if (result && result.outBinds && result.outBinds.ret)
+      {
+         var clob_string = JSON.parse(result.outBinds.ret)
       }
+
+      await tempLob.close()
+      return clob_string
    } catch(err) {
-      console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
-      throw err
+      const objErr = { stack: err.stack, message: err.message }
+      console.error(new Date(), objErr, sql, JSON.stringify(body));
+      throw objErr
    }
 }
 
@@ -266,31 +254,27 @@ exports.update = async function(id, pkg, user, path, body)
    const sql = 'BEGIN ' + PkgGateway + '.update_(:key, :obj, :pkg, :user, :ret); END;'
    try {
       const connection = await oracledb.getConnection(oracle_cn)
-      try {
-         const result = await connection.execute(
-            sql,
-            {  key: { val:parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER } ,
-               obj : { val:JSON.stringify(body), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize:32000 },
-               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               ret: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 }
-            }
-         )
+      const result = await connection.execute(
+         sql,
+         {  key: { val:parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER } ,
+            obj : { val:JSON.stringify(body), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize:32000 },
+            pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            ret: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 }
+         }
+      )
 
-         if (result && result.outBinds && result.outBinds.ret)
-         {
-            var r = JSON.parse(result.outBinds.ret)
-            doRelease(connection)
-            return(r)
-         } else doRelease(connection)
-         
-      } catch(err) {
-         console.error(new Date(), "update err 2 " + err.message, sql, path, JSON.stringify(body));
-         throw err
-      }
+      if (result && result.outBinds && result.outBinds.ret)
+      {
+         var r = JSON.parse(result.outBinds.ret)
+         doRelease(connection)
+         return(r)
+      } else doRelease(connection)
+      
    } catch(err) {
-      console.error(new Date(), "update err 1 " + err.message, sql, path)
-      throw err
+      const objErr = { stack: err.stack, message: err.message }
+      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      throw objErr
    }   
 }
 
@@ -308,23 +292,19 @@ exports.delete = async function(id, pkg, user, path, body)
    const sql = 'BEGIN ' + PkgGateway + '.delete_(:key, :pkg, :user); END;';
    try {
       const connection = await oracledb.getConnection(oracle_cn)
-      try {
-         const result = await connection.execute(
-            sql,
-            {  key: { val:parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER },
-               pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
-            }
-         )
-         
-         return
-      } catch(err) {
-         console.error(new Date(), "delete err 2 " + err.message, sql, path, JSON.stringify(body));
-         throw { message: err.message, sql: sql }
-      }
+      const result = await connection.execute(
+         sql,
+         {  key: { val:parseInt(id), dir: oracledb.BIND_IN, type: oracledb.NUMBER },
+            pkg: { val: pkg, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
+         }
+      )
+      
+      return
    } catch(err) {
-      console.error(new Date(), "delete err 1 " + err.message, sql, path)
-      throw { error: err }
+      const objErr = { stack: err.stack, message: err.message }
+      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      throw objErr
    }
 }
 
@@ -353,31 +333,27 @@ const methodOld = async function(method, pkg, user, path, body)
 
    try {
       const connection = await oracledb.getConnection(oracle_cn)
-      try {
-         const result = await connection.execute(
-            sql,
-            {
-               par: {
-                  val: JSON.stringify(body),
-                  dir: oracledb.BIND_IN,
-                  type: oracledb.STRING,
-                  maxSize: 32000
-               },
-               pkg: { val: pkg + '.' + method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               ret: {dir: oracledb.BIND_OUT, type: oracledb.CLOB}
-            }
-         )
+      const result = await connection.execute(
+         sql,
+         {
+            par: {
+               val: JSON.stringify(body),
+               dir: oracledb.BIND_IN,
+               type: oracledb.STRING,
+               maxSize: 32000
+            },
+            pkg: { val: pkg + '.' + method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            ret: {dir: oracledb.BIND_OUT, type: oracledb.CLOB}
+         }
+      )
 
-         const parsedResult =  await extract_result_new(result, connection)
-         return parsedResult
-      } catch(err) {
-         console.error(new Date(), "methodOld err 2 " + err.message, sql, path, JSON.stringify(body));
-         throw { message: err.message, sql: sql }
-      }
+      const parsedResult =  await extract_result_new(result, connection)
+      return parsedResult
    } catch(err) {
-      console.error(new Date(), "methodOld err 1 " + err.message, sql, path)
-      throw { error: err }
+      const objErr = { stack: err.stack, message: err.message }
+      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      throw objErr
    }
 }
 
@@ -393,28 +369,24 @@ var methodNew = async function (method, pkg, user, path, body)
       const tempLob = await connection.createLob(oracledb.CLOB)
       const loadedTempBlob = await doloadtemplobNew(tempLob)
 
-      try {
-         const result = await connection.execute(sql,
-            {
-               par : { val: templob, dir: oracledb.BIND_INOUT, type: oracledb.CLOB },
-               pkg: { val: pkg + '.' + method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
-               user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
-            })
-
-         if (result && result.outBinds && result.outBinds.ret)
+      const result = await connection.execute(sql,
          {
-            var clob_string = JSON.parse(result.outBinds.ret)
-         }
+            par : { val: templob, dir: oracledb.BIND_INOUT, type: oracledb.CLOB },
+            pkg: { val: pkg + '.' + method, dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 },
+            user: { val: formatUserFunction(user), dir: oracledb.BIND_IN, type: oracledb.STRING, maxSize: 32000 }
+         })
 
-         await tempLob.close()
-         return clob_string
-      } catch(err) {
-         console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
-         throw err
+      if (result && result.outBinds && result.outBinds.ret)
+      {
+         var clob_string = JSON.parse(result.outBinds.ret)
       }
+
+      await tempLob.close()
+      return clob_string
    } catch(err) {
-      console.error("In waterfall error cb: ==>", err, JSON.stringify(body), pkg, "<==");
-      throw err
+      const objErr = { stack: err.stack, message: err.message }
+      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      throw objErr
    }
 }
 

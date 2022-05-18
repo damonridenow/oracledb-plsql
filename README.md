@@ -2,10 +2,12 @@
 
 Turns plsql packages into express api calls
 
-## import and initialize
+## import and initialize with express
 
 ```
-const plsql= require('oracledb-plsql')
+const express = require('express')
+const plsql = require('oracledb-plsql')
+const app = express()
 
 app.use(plsql(app, {
    oracle_cn : {
@@ -31,42 +33,40 @@ app.post('/rest/plsql/pls/:pkg/:method', plsqlLib.methodRoute)
 
 ## import single function
 
-Besides routes, every function can be called in a standalone version, with this signatures
-TODO : document every parameter
+Besides routes, every function can be called in a standalone version, with this signatures.
 
-
-readAll (query, pkg, user, path, body)
+readAll (query, pkg, user, body)
 
 Example : 
 ```
 readAll({}, 'no_canale', { 
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-}, '/rest/plsql/no_canale', {})
+}, {})
 
 readAll({ temp: '1' }, 'no_utente', {
    _id: 4, nome: 
    'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-}, '/rest/plsql/no_utente', {})
+}, {})
 ```
 
-read (id, pkg, user, path, body)
+read (id, pkg, user, body)
 
 Example : 
 ```
 read(49, 'no_utente', {
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-} '/rest/plsql/no_utente/49', {})
+}, {})
 ```
 
 create (pkg, user, body)
@@ -76,7 +76,7 @@ Example :
 create('no_cartella', {
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
 }, {
@@ -86,17 +86,17 @@ create('no_cartella', {
 })
 ```
 
-update (id, pkg, user, path, body)
+update (id, pkg, user, body)
 
 Example : 
 ```
 update(2, 'no_gruppo', {
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-}, '/rest/plsql/no_gruppo/2', {
+}, {
    gruppo_id: 2, 
    canale_id: 13, 
    nome: 'gruppo due', 
@@ -105,38 +105,38 @@ update(2, 'no_gruppo', {
 })
 ```
 
-delete (id, pkg, user, path, body)
+delete (id, pkg, user, body)
 
 Example : 
 ```
 delete(5, 'no_gruppo', {
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-}, '/rest/plsql/no_gruppo/5', {})
+}, {})
 ```
 
-method (method, pkg, user, path, body)
+method (method, pkg, user, body)
 
 Example : 
 ```
 method('read_utenti_canale', 'no_utenti_canali', {
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-}, '/rest/plsql/pls/no_utenti_canali/read_utenti_canale', { canale_id: 13 })
+}, { canale_id: 13 })
 
 method('report_download', 'no_canale', {
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-}, '/rest/plsql/pls/no_canale/report_download', {
+}, {
    cid: 13, 
    da: '2022-05-01', 
    a: '2022-05-31'
@@ -145,10 +145,10 @@ method('report_download', 'no_canale', {
 method('read_utenti_canale', 'no_utenti_canali', {
    _id: 4, 
    nome: 'Daniele Sergione2', 
-   mail: 'daniele.sergi@plurimedia.it', 
+   mail: 'mail.di.un.utente@dominio.it', 
    admin: 1, 
    azienda_id: 2
-}, '/rest/plsql/pls/no_utenti_canali/read_utenti_canale', { canale_id: 13 })
+}, { canale_id: 13 })
 ```
 
 ## plsql packages : the gateway

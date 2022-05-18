@@ -102,14 +102,14 @@ const doloadtemplobNew = (templob) =>
 
 exports.readAllRoute = async function (req, res) {
    try {
-      const result = await exports.readAll(req.query, req.params.pkg, req.user, req.path, req.body)
+      const result = await exports.readAll(req.query, req.params.pkg, req.user, req.body)
       res.status(200).send(result)
    } catch (err) {
       res.status(500).send(err);
    }
 }
 
-exports.readAll = async function (query, pkg, user, path, body)
+exports.readAll = async function (query, pkg, user, body)
 {
    const sql = 'BEGIN ' + PkgGateway + '.read(:par, :pkg, :user, :ret); END;';
    try {
@@ -134,25 +134,25 @@ exports.readAll = async function (query, pkg, user, path, body)
          return parsedResult
 
       } catch(err) {
-         console.error(new Date(), "readAll err 2 " + err.message, sql, path, JSON.stringify(body));
+         console.error(new Date(), "readAll err 2 " + err.message, sql, JSON.stringify(body));
          throw { message: err.message, sql: sql }
       }
    } catch(err) {
-      console.error(new Date(), "readAll err 1 " + err.message, sql, path)
+      console.error(new Date(), "readAll err 1 " + err.message, sql)
       throw { error: err }
    }
 }
 
 exports.readRoute = async function (req, res) {
    try {
-      const result = await exports.read(req.params.id, req.params.pkg, req.user, req.path, req.body)
+      const result = await exports.read(req.params.id, req.params.pkg, req.user, req.body)
       res.status(200).send(result)
    } catch (err) {
       res.status(500).send(err);
    }
 }
 
-exports.read = async function (id, pkg, user, path, body)
+exports.read = async function (id, pkg, user, body)
 {
    const sql = 'BEGIN ' + PkgGateway + '.read(:key, :pkg, :user, :ret); END;'
    const connection = await oracledb.getConnection(oracle_cn)
@@ -170,12 +170,12 @@ exports.read = async function (id, pkg, user, path, body)
          return parsedResult
    } catch(err) {
       const objErr = { stack: err.stack, message: err.message }
-      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      console.error(new Date(), objErr, sql, JSON.stringify(body));
       throw objErr
    }
 }
 
-exports.readStringKey = async function (key, pkg, user, path, body)
+/* exports.readStringKey = async function (key, pkg, user, body)
 {
    const sql = 'BEGIN ' + PkgGateway + '.read(:key, :pkg, :user, :ret); END;'
    try {
@@ -193,10 +193,10 @@ exports.readStringKey = async function (key, pkg, user, path, body)
          return parsedResult
    } catch(err) {
       const objErr = { stack: err.stack, message: err.message }
-      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      console.error(new Date(), objErr, sql, JSON.stringify(body));
       throw objErr
    }
-}
+} */
 
 exports.createRoute = async function (req, res) {
    try {
@@ -242,14 +242,14 @@ exports.create = async function (pkg, user, body)
 
 exports.updateRoute = async function (req, res) {
    try {
-      const result = await exports.update(req.params.id, req.params.pkg, req.user, req.path, req.body)
+      const result = await exports.update(req.params.id, req.params.pkg, req.user, req.body)
       res.status(200).send(result)
    } catch (err) {
       res.status(500).send(err);
    }
 }
 
-exports.update = async function(id, pkg, user, path, body)
+exports.update = async function(id, pkg, user, body)
 {
    const sql = 'BEGIN ' + PkgGateway + '.update_(:key, :obj, :pkg, :user, :ret); END;'
    try {
@@ -273,21 +273,21 @@ exports.update = async function(id, pkg, user, path, body)
       
    } catch(err) {
       const objErr = { stack: err.stack, message: err.message }
-      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      console.error(new Date(), objErr, sql, JSON.stringify(body));
       throw objErr
    }   
 }
 
 exports.deleteRoute = async function (req, res) {
    try {
-      const result = await exports.delete(req.params.id, req.params.pkg, req.user, req.path, req.body)
+      const result = await exports.delete(req.params.id, req.params.pkg, req.user, req.body)
       res.status(200).send(result)
    } catch (err) {
       res.status(500).send(err);
    }
 }
 
-exports.delete = async function(id, pkg, user, path, body)
+exports.delete = async function(id, pkg, user, body)
 {
    const sql = 'BEGIN ' + PkgGateway + '.delete_(:key, :pkg, :user); END;';
    try {
@@ -303,31 +303,31 @@ exports.delete = async function(id, pkg, user, path, body)
       return
    } catch(err) {
       const objErr = { stack: err.stack, message: err.message }
-      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      console.error(new Date(), objErr, sql, JSON.stringify(body));
       throw objErr
    }
 }
 
 exports.methodRoute = async function (req, res) {
    try {
-      const result = await exports.method(req.params.method, req.params.pkg, req.user, req.path, req.body)
+      const result = await exports.method(req.params.method, req.params.pkg, req.user, req.body)
       res.status(200).send(result)
    } catch (err) {
       res.status(500).send(err);
    }
 }
 
-exports.method = async function (method, pkg, user, path, body)
+exports.method = async function (method, pkg, user, body)
 {
     //ho fatto due metodi diversi a seconda del parametro che gli inviamo : se serve usiamo un CLOB
     //console.log('metodo : lunghezza body', JSON.stringify(req.body).length);
     if (JSON.stringify(body).length > 30000)
-        return methodNew(method, pkg, user, path, body);
+        return methodNew(method, pkg, user, body);
     else
-        return methodOld(method, pkg, user, path, body);
+        return methodOld(method, pkg, user, body);
 }
 
-const methodOld = async function(method, pkg, user, path, body)
+const methodOld = async function(method, pkg, user, body)
 {
    const sql = 'BEGIN ' + PkgGateway + '.method(:par, :pkg, :user, :ret); END;';
 
@@ -352,14 +352,13 @@ const methodOld = async function(method, pkg, user, path, body)
       return parsedResult
    } catch(err) {
       const objErr = { stack: err.stack, message: err.message }
-      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      console.error(new Date(), objErr, sql, JSON.stringify(body));
       throw objErr
    }
 }
 
-var methodNew = async function (method, pkg, user, path, body)
+var methodNew = async function (method, pkg, user, body)
 {
-   var async = require('async');
    var sql = 'BEGIN ' + PkgGateway + '.method(:par, :pkg, :user); END;';
 
    requestBody = body;
@@ -385,7 +384,7 @@ var methodNew = async function (method, pkg, user, path, body)
       return clob_string
    } catch(err) {
       const objErr = { stack: err.stack, message: err.message }
-      console.error(new Date(), objErr, sql, path, JSON.stringify(body));
+      console.error(new Date(), objErr, sql, JSON.stringify(body));
       throw objErr
    }
 }

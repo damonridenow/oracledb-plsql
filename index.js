@@ -16,6 +16,7 @@ module.exports = {
     }
   },
   // readStringKey: plsqlLib.readStringKey,
+  init: plsqlLib.init,
   read: plsqlLib.read,
   readAll: plsqlLib.readAll,
   create: plsqlLib.create,

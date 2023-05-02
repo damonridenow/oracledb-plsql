@@ -1,6 +1,6 @@
 {
   "name": "oracledb-plsql",
-  "version": "2.0.0.1",
+  "version": "2.0.2",
   "description": "use plsql package directly from api calls",
   "main": "index.js",
   "scripts": {

@@ -9,6 +9,6 @@
   "author": "Daniele Sergi",
   "license": "ISC",
   "dependencies": {
-    "oracledb": "^5.3.0"
+    "oracledb": "6.1.0"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "oracledb-plsql",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "use plsql package directly from api calls",
   "main": "index.js",
   "scripts": {
@@ -9,6 +9,6 @@
   "author": "Daniele Sergi",
   "license": "ISC",
   "dependencies": {
-    "oracledb": "6.1.0"
+    "oracledb": "6.10.0"
   }
 }

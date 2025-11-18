@@ -321,10 +321,10 @@ exports.method = async function (method, pkg, user, body)
 {
     //ho fatto due metodi diversi a seconda del parametro che gli inviamo : se serve usiamo un CLOB
     //console.log('metodo : lunghezza body', JSON.stringify(req.body).length);
-    if (JSON.stringify(body).length > 30000)
+    if (body && JSON.stringify(body).length > 30000)
         return methodNew(method, pkg, user, body);
     else
-        return methodOld(method, pkg, user, body);
+        return methodOld(method, pkg, user, body || {});
 }
 
 const methodOld = async function(method, pkg, user, body)
